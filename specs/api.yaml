@@ -1,0 +1,923 @@
+---
+openapi: 3.0.2
+servers:
+  - url: /v2
+info:
+  title: CyberArk Proxy
+  description: An opinionated proxy to CyberArk's API
+  version: 0.0.1
+paths:
+  /auth/cyberark/logon:
+    post:
+      summary: Log into cyberark using v2 api
+      description: This operation authenticates a user to the Vault and returns a token that can be used in subsequent web services calls. In addition, this method enables you to set a new password.
+      operationId: createLogonSession
+      requestBody:
+        description: Create a new cyberark session
+        required: true
+        content:
+          application/json:
+            schema:
+                $ref: '#/components/schemas/Logon'
+      responses:
+        200:
+          description: The results of logging on.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogonResponseToken'
+
+  /accounts:
+    get:
+      operationId: findAccounts
+      summary: Return information on Accounts in the Vault that meet the criteria specified in the search query.
+      description: This operation returns all accounts matching provided search criteria.
+      security:
+        - SessionToken: []
+      parameters:
+        - in: query
+          name: search
+          description: List of keywords to search for in accounts, separated by a space.
+          required: false
+          schema:
+            type: string
+            description: The search keywords.
+        - in: query
+          name: searchType
+          description: Get accounts that either contain or start with the value specified in the Search parameter.
+          required: false
+          schema:
+            type: string
+            description: Use either 'contains' (default) or 'startswith'.
+        - in: query
+          name: sort
+          description: Property or properties by which to sort returned accounts, followed by asc (default) or desc to control sort direction. Separate multiple properties with commas, up to a maximum of three properties.
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: offset
+          description: Offset of the first account that is returned in the collection of results.
+          required: false
+          schema:
+            type: number
+        - in: query
+          name: limit
+          description: Maximum number of returned accounts. If not specified, the default value is 50. The maximum number that can be specified is 1000.
+          required: false
+          schema:
+            type: number
+            default: 50
+            maximum: 999
+        - in: query
+          name: filter
+          description: Search for accounts filtered by 'safeName' or 'modificationTime'
+          required: false
+          schema:
+            type: string
+      responses:
+        200:
+          description: The results of searching for safes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchAccountsResults'
+    post:
+      operationId: addAccount
+      summary: Adds a new privileged account or key pair to the Vault.
+      description: This operation creates a new account in the Vault.
+      security:
+        - SessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewAccountPayload'
+      responses:
+        201:
+          description: The results of successful account creation.
+
+  /accounts/{accountId}:
+    get:
+      operationId: findAccountById
+      summary: Get the details of an existing Account in the Vault.
+      description: This operation retrieves a specified account from the Vault.
+      security:
+        - SessionToken: []
+      parameters:
+        - in: path
+          name: accountId
+          description: The unique ID of the account.
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: The results of retrieving an account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+
+  /accounts/{accountId}/password/retrieve:
+    post:
+      operationId: getAccountPassword
+      summary: Retrieve the password or SSH key of an existing account that is identified by its Account ID.
+      description: This operation retrieves the password of a specified account.
+      security:
+        - SessionToken: []
+      parameters:
+        - in: path
+          name: accountId
+          description: The unique ID of the account.
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: The results of retrieving an account's password.
+          content:
+            application/json:
+              schema:
+                type: string
+
+  /accounts/{accountId}/password/update:
+    post:
+      operationId: updateAccountPassword
+      summary: Immediately update (in the vault) the password or SSH key of an existing account that is identified by its Account ID.
+      description: This operation immediately updates the password of a specified account.
+      security:
+        - SessionToken: []
+      parameters:
+        - in: path
+          name: accountId
+          description: The unique ID of the account.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              properties:
+                NewCredentials:
+                  type: string
+              required:
+                - NewCredentials
+      responses:
+        200:
+          description: The results of updating an account's password.
+
+  /safes:
+    get:
+      operationId: findSafes
+      summary: Return information on Safes in the Vault that meet the criteria specified in the search query.
+      description: This operation returns all safes matching provided search criteria.
+      security:
+        - SessionToken: []
+      parameters:
+        - in: query
+          name: query
+          description: The search query.
+          required: true
+          schema:
+            type: string
+            description: The search query.
+      responses:
+        200:
+          description: The results of searching for safes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchSafesResults'
+    post:
+      operationId: addSafe
+      summary: Adds a new Safe to the Vault.
+      description: This operation creates a new safe in the Vault.
+      security:
+        - SessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Safe'
+      responses:
+        201:
+          description: The results of successful safe creation.
+
+  /safes/{safeName}:
+    get:
+      operationId: findSafeByName
+      summary: Get the details of an existing Safe in the Vault.
+      description: This operation retrieves a specified safe from the Vault.
+      security:
+        - SessionToken: []
+      parameters:
+        - in: path
+          name: safeName
+          description: The name of Safe to get details for.
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: The results of retrieving a safe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetSafeResult'
+    delete:
+      operationId: deleteSafe
+      summary: Delete an existing Safe from the Vault.
+      description: This operation deletes a specified safe from the Vault.
+      security:
+        - SessionToken: []
+      parameters:
+        - in: path
+          name: safeName
+          description: The name of Safe to delete.
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: The results of successful safe deletion.
+
+  /safes/{safeName}/members:
+    get:
+      operationId: findSafeMembers
+      summary: Get the members of an existing Safe in the Vault.
+      description: This operation retrieves membership information for a specified safe.
+      security:
+        - SessionToken: []
+      parameters:
+        - in: path
+          name: safeName
+          description: The name of Safe to get members for.
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: The results of listing members of a safe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchSafeMembersResults'
+
+  /safes/{safeName}/accountgroups:
+    get:
+      operationId: findAccountGroupsBySafeName
+      summary: Get the account groups in a specific Safe.
+      description: This operation retrieves account group information for a specified safe.
+      security:
+        - SessionToken: []
+      parameters:
+        - in: path
+          name: safeName
+          description: The name of Safe to get details for.
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: The results of listing account groups of a safe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchSafeAcctGroupsResults'
+
+  /platforms:
+    get:
+      operationId: findPlatforms
+      summary: Return information on Account Platforms in the Vault that meet the criteria specified in the search query.
+      description: This operation returns all platforms ssmatching provided search criteria.
+      security:
+        - SessionToken: []
+      parameters:
+        - in: query
+          name: Active
+          description: Filter according to whether the platform is active or not.
+          required: false
+          schema:
+            type: boolean
+            description: The platform is active or not.
+        - in: query
+          name: PlatformType
+          description: Filter according to the platform type.
+          required: false
+          schema:
+            $ref: '#/components/schemas/PlatformType'
+        - in: query
+          name: Search
+          description: Searching according to the platform name.
+          required: false
+          schema:
+            type: string
+            description: The platform name.
+      responses:
+        200:
+          description: The results of searching for account platforms.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchPlatformsResults'
+
+  /platforms/{platformName}:
+    get:
+      operationId: findPlatformByName
+      summary: Get the details of an existing Account Platform in the Vault.
+      description: This operation retrieves a specified platform from the Vault.
+      security:
+        - SessionToken: []
+      parameters:
+        - in: path
+          name: platformName
+          description: The unique ID/Name of the account platform.
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: The results of retrieving an account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformDetails'
+
+components:
+  securitySchemes:
+    SessionToken:
+      type: apiKey
+      description: The session token used for authenticated CyberArk requests.
+      name: Authorization
+      in: header
+  schemas:
+    Logon:
+      type: object
+      description: Payload for v2 logon request.
+      properties:
+        userName:
+          type: string
+          description: The name of the user who is logging in to the Vault.
+        password:
+          type: string
+          description: The password used by the user to log in to the Vault.
+        newPassword:
+          type: string
+          description: Set this parameter with a new password to change the user's password.
+        concurrentSession:
+          type: boolean
+          description: Set this parameter to True to enable the user to open multiple connection sessions simultaneously.
+          default: true
+      required:
+        - userName
+        - password
+    LogonResponseToken:
+      type: string
+      description: Response from a v2 logon attempt
+    SecretManagement:
+      type: object
+      description: Describes how account secret is managed.
+      properties:
+        automaticManagementEnabled:
+          type: boolean
+          description: Whether the account secret is automatically managed by the CPM.
+          default: true
+        manualManagementReason:
+          type: string
+          description: Reason for disabling automatic secret management.
+        status:
+          type: string
+          description: Account management status.
+          enum:
+            - inProcess
+            - succeeded
+            - failed
+            - partiallySucceeded
+        lastModifiedTime:
+          type: integer
+          format: int32
+          description: Last modified date of the account.
+        lastReconciledTime:
+          type: integer
+          format: int32
+          description: Last reconciled date of the account.
+        lastVerifiedTime:
+          type: integer
+          format: int32
+          description: Last verified date of the account.
+    RemoteMachinesAccess:
+      type: object
+      description: Describes how remote machines may be accessed.
+      properties:
+        remoteMachines:
+          type: string
+          description: List of remote machines, separated by semicolons.
+        accessRestrictedToRemoteMachines:
+          type: boolean
+          description: Whether or not to restrict access only to specified remote machines.
+    SearchAccountsResults:
+      type: object
+      description: The results of searching for Accounts.
+      properties:
+        count:
+          type: integer
+          format: int32
+          description: The number of results returned.
+        value:
+          type: array
+          description: The collection of individual account detail.
+          items:
+            $ref: '#/components/schemas/SearchAccountsDetail'
+    SearchAccountsDetail:
+      type: object
+      description: The individual account detail returned when searching for Accounts.
+      properties:
+        categoryModificationTime:
+          type: integer
+          format: int32
+          description: The last time when the account or one its file categories was created or changed.
+        id:
+          type: string
+          description: The ID of the account.
+        name:
+          type: string
+          description: The name of the account.
+        address:
+          type: string
+          description: The name or address of the machine where the account is used.
+        userName:
+          type: string
+          description: Account user's name.
+        platformId:
+          type: string
+          description: The platform assigned to this account.
+        safeName:
+          type: string
+          description: The Safe where the account is located.
+        secretType:
+          type: string
+          description: The type of password.
+        platformAccountProperties:
+          type:  object
+          description: Object containing key-value pairs to associate with the account, as defined by the account platform.
+        secretManagement:
+          $ref: '#/components/schemas/SecretManagement'
+        createdTime:
+          type: integer
+          format: int32
+          description: Date and time account was created.
+    Account:
+      type: object
+      description: Get information about a specific Account in the Vault.
+      allOf:
+        - $ref: '#/components/schemas/NewAccountPayload'
+      properties:
+        id:
+          type: string
+          description: The ID of the account.
+        categoryModificationTime:
+          type: string
+          description: The last time the account or one of its file categories was created or modified.
+        createdTime:
+          type: string
+          description: The time the account was created, or when the secret (password or key) was modified.
+    NewAccountPayload:
+      type: object
+      description: Payload for creating a new account in CyberArk.
+      properties:
+        name:
+          type: string
+          description: The name of the account.
+        address:
+          type: string
+          description: The name or address of the machine where the account will be used.
+        userName:
+          type: string
+          description: Account user's name.
+        platformId:
+          type: string
+          $ref: '#/components/schemas/PlatformAccountPropertiesType'
+        safeName:
+          type: string
+          description: The Safe where the account will be created.
+        secret:
+          type: string
+          description: The password value. This will not be returned in the API output.
+        secretType:
+          type: string
+          description: The type of password.
+        platformAccountProperties:
+          $ref: '#/components/schemas/PlatformAccountProperties'
+        secretManagement:
+          $ref: '#/components/schemas/SecretManagement'
+        remoteMachinesAccess:
+          $ref: '#/components/schemas/RemoteMachinesAccess'
+      required:
+        - name
+        - platformId
+        - safeName
+        - secret
+        - secretType
+    UpdateAccountOperation:
+      type: object
+      description: The details of how an account property will be updated.
+      properties:
+        op:
+          type: string
+          description: The allowed operations to perform on the properties.
+          enum:
+            - Replace
+            - Remove
+            - Add
+        path:
+          type: string
+          description: The path of the property name.
+        value:
+          type: string
+          description: The updated property value.
+    Safe:
+      type: object
+      description: A safe in CyberArk.
+      properties:
+        SafeName:
+          type: string
+          description: Name of safe to create.
+          maxLength: 28
+        Description:
+          type: string
+          description: Description of new safe.
+          maxLength: 100
+        OLACEnabled:
+          type: boolean
+          description: Whether or not to enable Object Level Access Control for the new Safe.
+          default: false
+        Location:
+          type: string
+          description: Location of the Safe in the Vault.
+          maxLength: 50
+          default: "\\"
+        ManagingCPM:
+          type: string
+          description: The name of the CPM user who will manage the new Safe.
+        NumberOfVersionsRetention:
+          type: integer
+          format: int32
+          description: The number of retained versions of every password that is stored in the Safe.
+          minimum: 1
+          maximum: 999
+        NumberOfDaysRetention:
+          type: integer
+          format: int32
+          description: The number of days for which password versions are saved in the Safe.
+          minimum: 1
+          maximum: 3650
+          default: 7
+        AutoPurgeEnabled:
+          type: boolean
+          description: Whether or not to automatically purge files after the end of the Object History Retention Period.
+          default: false
+      required:
+        - SafeName
+    SafeAccountGroup:
+      type: object
+      description: The account group details for an individual Safe.
+      properties:
+        safe:
+          type: string
+          description: Name of safe where the account groups are.
+        groupId:
+          type: string
+          description: The ID of the account group.
+        groupName:
+          type: string
+          description: The name of the account group.
+        groupPlatformId:
+          type: string
+          description: The ID of the platform associated with the account group.
+    SafePermissions:
+      type: object
+      description: The safe permissions details of a member may have. Note this list is complete.
+      properties:
+        Add:
+          type: boolean
+          description: The 'add safe' permission.
+        AddRenameFolder:
+          type: boolean
+          description: The 'add rename folder' permission.
+        BackupSafe:
+          type: boolean
+          description: The 'backup safe' permission.
+        Delete:
+          type: boolean
+          description: The 'delete' permission.
+        DeleteFolder:
+          type: boolean
+          description: The 'delete folder' permission.
+        ListContent:
+          type: boolean
+          description: The 'list content' permission.
+        ManageSafe:
+          type: boolean
+          description: The 'manage safe' permission.
+        ManageSafeMembers:
+          type: boolean
+          description: The 'manage safe members' permission.
+        MoveFilesAndFolders:
+          type: boolean
+          description: The 'move files & folders' permission.
+        Rename:
+          type: boolean
+          description: The 'rename' permission.
+        RestrictedRetrieve:
+          type: boolean
+          description: The 'restricted retrieve' permission.
+        Retrieve:
+          type: boolean
+          description: The 'retrieve' permission.
+        Unlock:
+          type: boolean
+          description: The 'unlock' permission.
+        Update:
+          type: boolean
+          description: The 'update' permission.
+        UpdateMetadata:
+          type: boolean
+          description: The 'update metadata' permission.
+        ValidateSafeContent:
+          type: boolean
+          description: The 'validate safe content' permission.
+        ViewAudit:
+          type: boolean
+          description: The 'view audit' permission.
+        ViewMembers:
+          type: boolean
+          description: The 'view members' permission.
+    SafeMember:
+      type: object
+      description: The details for an individual Safe.
+      properties:
+        UserName:
+          type: string
+          description: The user belonging to the safe.
+        Permissions:
+          $ref: '#/components/schemas/SafePermissions'
+    GetSafeResult:
+      type: object
+      description: The collection of safe details.
+      $ref: '#/components/schemas/Safe'
+    SearchSafesResults:
+      type: object
+      description: Results for safe searches.
+      properties:
+        GetSafesResult:
+          type: array
+          description: The collection of safe details.
+          items:
+            $ref: '#/components/schemas/Safe'
+    SearchSafeMembersResults:
+      type: object
+      description: Results for safe membership searches.
+      properties:
+        members:
+          type: array
+          description: The collection of safe details for a given membership.
+          items:
+            $ref: '#/components/schemas/SafeMember'
+    SearchSafeAcctGroupsResults:
+      type: object
+      description: Results for safe account groups searches.
+      properties:
+        searchSafeAcctGroupsResult:
+          type: array
+          description: The collection of account group details for an individual Safe.
+          items:
+            $ref: '#/components/schemas/SafeAccountGroup'
+    PlatformAccountPropertiesType:
+      type: string
+      description: The platform account types supported by CDW Managed Services.
+      enum:
+        - "SNMPv3PrivKey"
+        - "UnixSSH"
+        - "MorpheusAzureServicePrincipal"
+    PlatformAccountProperties:
+      type: object
+      description: Generic or base platform account properties implemented by CDW Managed Services.
+      discriminator:
+        propertyName: type
+      properties:
+        type:
+          $ref: '#/components/schemas/PlatformAccountPropertiesType'
+      required:
+        - type
+    PlatformAccountPropertiesSnmp:
+      type: object
+      description: Platform Account Properties for a SNMP v3 private key.
+      allOf:
+        - $ref: '#/components/schemas/PlatformAccountProperties'
+      properties:
+        customerAbbr:
+          type: string
+        ciName:
+          type: string
+        snmpv3PrivProtocol:
+          type: string
+          default: "DES"
+        objectName:
+          type: string
+      required:
+        - type
+        - customerAbbr
+        - ciName
+        - objectName
+    PlatformAccountPropertiesUnixSsh:
+      type: object
+      description: Platform Account Properties for Unix ssh.
+      allOf:
+        - $ref: '#/components/schemas/PlatformAccountProperties'
+      properties:
+        customerAbbr:
+          type: string
+        ciName:
+          type: string
+        objectName:
+          type: string
+      required:
+        - type
+        - objectName
+        - ciName
+        - customerAbbr
+    PlatformAccountPropertiesMorpheusAzureSP:
+      type: object
+      description: Platform Account Properties for a Morpheus Azure Service Principal.
+      allOf:
+        - $ref: '#/components/schemas/PlatformAccountProperties'
+      properties:
+        clientId:
+          type: string
+        objectName:
+          type: string
+        subscriptionId:
+          type: string
+        tenantName:
+          type: string
+        tenantId:
+          type: string
+      required:
+        - type
+        - clientId
+        - objectName
+        - subscriptionId
+        - tenantId
+        - tenantName
+    PlatformType:
+      type: string
+      description: Type of CyberArk platform. 
+      enum:
+        - Regular
+        - Group
+    PlatformDetails:
+      type: object
+      description: The details of an individual CyberArk platform.
+      properties:
+        PlatformID:
+          type: string
+          description: The unique ID of the platform.
+        Details:
+          type: object
+          description: All the platform's parameters with their values.
+        Active:
+          type: boolean
+          description: According to the Master Policy, is the platform active?
+    SearchPlatformsResults:
+      type: object
+      description: The results of searching for Platforms.
+      properties:
+        Platforms:
+          type: array
+          description: The collection of Platform details.
+          items:
+            $ref: '#/components/schemas/SearchPlatformsDetail'
+    SearchPlatformsDetail:
+      type: object
+      description: The individual platform detail returned when searching for Platforms.
+      properties:
+        general:
+          type: object
+          description: The base information of the platform
+          properties:
+            id:
+              type: string
+              description: The platform's unique ID.
+            name:
+              type: string
+              description: The name of the platform.
+            systemType:
+              type: string
+              description: The type of system to which the platform is applied.
+            active:
+              type: boolean
+              description: Indicates whether a platform is active or inactive.
+            description:
+              type: string
+              description: A description of the platform.
+            platformBaseID:
+              type: string
+              description: The ID of the default platform that this platform is based on (duplicated from).
+            platformType:
+              $ref: '#/components/schemas/PlatformType'
+        properties:
+          type: object
+          description: The base information of the platform
+          properties:
+            required:
+              type: array
+              description: A list of all required properties defined for the platform.
+              items:
+                $ref: '#/components/schemas/PlatformProperty'
+            optional:
+              type: array
+              description: A list of all optional properties defined for the platform.
+              items:
+                $ref: '#/components/schemas/PlatformProperty'
+        linkedAccounts:
+          type: array
+          description: A list of all linked accounts types that are relevant for the platform.
+          items:
+            $ref: '#/components/schemas/PlatformProperty'
+        credentialsManagement:
+          type: object
+          description: Defines how the platform credentials are managed.
+          properties:
+            allowedSafes:
+              type: string
+              description: A list of safes (regular expression) to which this platform can be applied.
+            allowManualChange:
+              type: boolean
+              description: Indicates whether a 'Change now' process can be initiated manually.
+            performPeriodicChange:
+              type: boolean
+              description: Indicates whether accounts related to this platform will be changed periodically.
+            requirePasswordChangeEveryXDays:
+              type: integer
+              format: int32
+              description: The number of days between each periodic change.
+            allowManualVerification:
+              type: boolean
+              description: Indicates whether a 'Verify now' process can be initiated manually.
+            performPeriodicVerification:
+              type: boolean
+              description: Indicates whether accounts related to this platform will be verified periodically.
+            requirePasswordVerificationEveryXDays:
+              type: integer
+              format: int32
+              description: The number of days between each periodic verification.
+            allowManualReconciliation:
+              type: boolean
+              description: Indicates whether a 'Reconcile now' process can be initiated manually.
+            automaticReconcileWhenUnsynched:
+              type: boolean
+              description: Whether or not passwords will be reconciled automatically after the CPM detects a password on a remote machine that is not synchronized with its corresponding password in the Server.
+        sessionManagement:
+          type: object
+          description: Defines how the platform session is managed.
+          properties:
+            requirePrivilegedSessionMonitoringAndIsolation:
+              type: boolean
+              description: Indicates whether the Require privileged session monitoring and isolation rule is active for this platform.
+            recordAndSaveSessionActivity:
+              type: boolean
+              description: Indicates whether the Record and save session activity rule is active for this platform.
+            PSMServerID:
+              type: string
+              description: The unique ID of a PSM Server.
+        privilegedAccessWorkflows:
+          type: object
+          description: Defines how the platform is accessed, managed, etc.
+          properties:
+            requireDualControlPasswordAccessApproval:
+              type: boolean
+              description: Indicates whether accounts associated with this platform require dual control.
+            enforceCheckinCheckoutExclusiveAccess:
+              type: boolean
+              description: Indicates whether the Enforce check-in/check-out exclusive access rule is active or inactive for this platform.
+            enforceOnetimePasswordAccess:
+              type: boolean
+              description: Indicates whether the Enforce one-time password access rule is active for this platform.
+    PlatformProperty:
+      type: object
+      description: The individual platform property.
+      properties:
+        name:
+          type: string
+          description: The system name of the property.
+        displayName:
+          type: string
+          description: The displayed name of the property.
+      required:
+        - name
+        - displayName
