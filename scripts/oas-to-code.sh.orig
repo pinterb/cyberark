@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+
+# vim: filetype=sh:tabstop=2:shiftwidth=2:expandtab
+
+readonly SCRIPT_DIR=$(basename $0)
+readonly SCRIPT_NAME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly ROOTDIR=$(git rev-parse --show-toplevel)
+
+readonly OWNER="cdwlabs"
+readonly REPO="mans-cyberark-webservices"
+readonly OAS_FILE="specs/api.yaml"
+
+readonly GO_PKG_ROOT="cyberark/internal"
+readonly GO_PKG="$GO_PKG_ROOT/webservice"
+
+readonly DEEPMAP_CODEGEN="codegen"
+readonly GO_PKG_DEEPMAP="$GO_PKG_ROOT/$DEEPMAP_CODEGEN"
+
+tag_to_version() {
+  if [ -z "${TAG}" ]; then
+    echo "checking GitHub for latest tag"
+  else
+    echo "checking GitHub for tag '${TAG}'"
+  fi
+  REALTAG=$(github_release "$OWNER/$REPO" "${TAG}") && true
+  if test -z "$REALTAG"; then
+    echo "unable to find '${TAG}' - use 'latest' or see https://github.com/${PREFIX}/releases for details"
+    exit 1
+  fi
+  # if version starts with 'v', remove it
+  TAG="$REALTAG"
+  VERSION=${TAG#v}
+}
+
+# for now, copy the spec file from sister repository on local disk
+cp "$ROOTDIR/../mans-cyberark-webservices/specs/api.yaml" "$ROOTDIR/$OAS_FILE"
+
+# but eventually, grab the latest version from github and pull it down
+
+if [ ! -f "$ROOTDIR/$OAS_FILE" ]; then
+  echo
+  echo "expecting openapi spec file to be found at '$OAS_FILE'"
+  echo
+  exit 1
+fi
+
+# oapi-codegen -o cyberark/internal/codegen/codegen.go -package codegen specs/api.yaml
+if ! command -v oapi-codegen 1>/dev/null; then
+  echo
+  echo "it seems oapi-codegen is not installed"
+  echo
+  echo "...will attempt to install"
+  echo
+  go get github.com/deepmap/oapi-codegen/cmd/oapi-codegen
+fi
+
+rm -rf "$ROOTDIR/$GO_PKG_DEEPMAP"
+mkdir -p "$ROOTDIR/$GO_PKG_DEEPMAP"
+oapi-codegen -generate types,client -o "$ROOTDIR/$GO_PKG_DEEPMAP/${DEEPMAP_CODEGEN}.go" -package "${DEEPMAP_CODEGEN}" specs/api.yaml
+
+
+if ! command -v docker 1>/dev/null; then
+  echo
+  echo "it seems docker is not installed"
+  echo
+  exit 1
+fi
+
+rm -rf "$ROOTDIR/$GO_PKG"
+
+#  -e GO_POST_PROCESS_FILE="/usr/local/bin/gofmt -s -w" \
+#  -e GO_POST_PROCESS_FILE="gofmt -s -w" \
+cd "$ROOTDIR" && docker run \
+  --rm \
+  -v $PWD:/local \
+  openapitools/openapi-generator-cli generate \
+  -i "/local/$OAS_FILE" \
+  -g go \
+  -o "/local/$GO_PKG" \
+  --additional-properties packageName=webservice \
+  --additional-properties isGoSubmodule=false \
+  --additional-properties useOneOfDiscriminatorLookup=true \
+  --additional-properties generateAliasAsModel=true \
+  --additional-properties packageVersion=1.185.824 \
+  --type-mappings=object=interface{} \
+  --enable-post-process-file \
+  --skip-validate-spec
+
+dirs=$(go list -f {{.Dir}} ./...)
+test -z "`for d in $dirs; do goimports -l $d/*.go | tee /dev/stderr; done`"
+
+if command -v gofmt 1>/dev/null; then
+  test -z "`for d in $dirs; do gofmt -s -w $d/*.go | tee /dev/stderr; done`"
+#  cd "$ROOTDIR" && gofmt -s -w .
+else
+  echo
+  echo "gofmt is not installed locally, formatting skipped"
+  echo
+fi
+
+if command -v goimports 1>/dev/null; then
+  test -z "`for d in $dirs; do goimports -w $d/*.go | tee /dev/stderr; done`"
+else
+  echo
+  echo "goimports is not installed locally, formatting skipped"
+  echo
+fi
+
+# declare auto-generated files that we can remove from the generated directory
+declare -a scraps=(".gitignore" ".travis.yml" "go.mod" "go.sum" "git_push.sh" ".openapi-generator-ignore")
+for i in "${scraps[@]}"
+do
+   if [ -f "$ROOTDIR/$GO_PKG/$i" ]; then
+     rm "$ROOTDIR/$GO_PKG/$i"
+   fi
+done
