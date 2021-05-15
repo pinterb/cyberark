@@ -55,7 +55,7 @@ golangci-lint:
 	@golangci-lint run ./...
 
 tag: ## Tag a release
-	@git tag "$(semver -d 0.0.0 -i)"
+	@git tag -a "$(shell semver -d 0.0.1 -i)"
 	@git push --tags
 
 release: tag ## Cut a release
@@ -83,4 +83,4 @@ help: ## Show this help screen
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ''
 
-.PHONY: help build fmtcheck gen gencheck depscheck tools golangci-lint lint generate-changelog
+.PHONY: help build fmtcheck gen gencheck depscheck tools golangci-lint lint generate-changelog tag release
