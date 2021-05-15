@@ -69,7 +69,8 @@ ifeq ($(shell test $(GIT_COMMIT_COUNT) -gt 1; echo $$?),0)
 	@echo
 	@exit 1
 endif
-	@git tag -a "$(shell semver -d 0.0.1 -i)" -m "version $(shell semver -d 0.0.1 -i)"
+	@git fetch --tags
+	@git tag -a "$(shell semver -r -i)" -m "version $(shell semver -r -i)"
 	@git push --tags
 
 release: tag ## Cut a release
