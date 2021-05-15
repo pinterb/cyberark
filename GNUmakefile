@@ -55,7 +55,7 @@ golangci-lint:
 	@golangci-lint run ./...
 
 tag: ## Tag a release
-	@git tag -a "$(shell semver -d 0.0.1 -i)"
+	@git tag -a "$(shell semver -d 0.0.1 -i)" -m "version $(shell semver -d 0.0.1 -i)"
 	@git push --tags
 
 release: tag ## Cut a release
