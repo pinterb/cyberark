@@ -6,12 +6,19 @@ GIT_SHA := $(shell git rev-parse --short HEAD)
 GIT_TAG := $(shell git describe --tags --abbrev=0 2>/dev/null)
 GIT_VERSION := $(shell git describe --always --dirty)
 GIT_DIRTY ?= $(shell test -n "`git status --porcelain`" && echo "dirty" || echo "clean")
+GIT_COMMIT_COUNT = $(shell git rev-list $$(git describe --tags --abbrev=0)..HEAD --count)
+GIT_REBASE_COUNT = $(shell expr $(GIT_COMMIT_COUNT) - 1)
 
 default: build
 
 build:
 	@$(MAKE) gen
 	@$(MAKE) fmt
+ifeq ($(shell test $(GIT_COMMIT_COUNT) -gt 1; echo $$?),0)
+	@echo "git commit count: $(GIT_COMMIT_COUNT)"
+	@echo
+	@echo "you must rebase first"
+endif
 
 gen: ## Generate code from OpenAPI specification file
 	@oapi-codegen \
@@ -55,6 +62,13 @@ golangci-lint:
 	@golangci-lint run ./...
 
 tag: ## Tag a release
+ifeq ($(shell test $(GIT_COMMIT_COUNT) -gt 1; echo $$?),0)
+	@echo "git commit count: $(GIT_COMMIT_COUNT)"
+	@echo
+	@echo "you must first rebase using 'git rebase -i HEAD~$(GIT_COMMIT_COUNT)'"
+	@echo
+	@exit 1
+endif
 	@git tag -a "$(shell semver -d 0.0.1 -i)" -m "version $(shell semver -d 0.0.1 -i)"
 	@git push --tags
 
